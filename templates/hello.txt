@@ -1,3 +1,0 @@
-{% for name in names %}
-{{- loop.index }}. Hello {{ name }}!
-{% endfor %}

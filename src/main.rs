@@ -11,7 +11,7 @@ use axum::{
     routing::{get, post},
     Json, Router,
 };
-use minijinja::{context, Environment, Template};
+use minijinja::{context, value::Object, Environment, Template};
 use serde_json::Value;
 use std::{collections::HashMap, fmt::format, fs::FileType};
 use urlencoding::decode;
@@ -20,17 +20,19 @@ use urlencoding::decode;
 async fn main() {
     // build our application with a single route
     let app = Router::new()
+        // -- HTMX
+        .route("/htmx", get(htmx))
+        // -- PAGES
         .route("/", get(index))
         .route(
             "/tyler",
             get(|| async { MyEnvironment::get_html("tyler.html") }).post(tyler_post),
         )
-        .route("/htmx", get(htmx))
-        .route("/htmx/json-enc", get(htmx_json_enc))
         .route(
             "/mouse",
             get(|| async { MyEnvironment::get_html("mouse.html") }), //impl Fn() -> impl Future<Output = Html<String>>
         )
+        // -- API
         .route("/mouse_entered", post(|| async { println!("mouse enter") }))
         .route("/tst", get(|| async { "{\"kill\": 7}" }));
 
@@ -42,24 +44,37 @@ async fn main() {
 }
 
 async fn tyler_post(x: String) -> Html<String> {
-    let x = decode(&x["pokemon=".len()..]).unwrap().to_string();
-
-    println!("{x:?}");
+    let x = decode(&x["_=".len()..]).unwrap().to_string();
     let data: Value = serde_json::from_str(&x).unwrap();
-    Html(format!("<pre>{data:#?}</pre>"))
+    //let Value::Object(data) = data else { panic!() };
+
+    Html(format!(
+        "<pre>{:#?}</pre>",
+        data.as_object()
+            .unwrap()
+            .iter()
+            .map(|(k, v)| (k.to_string(), val_type(v)))
+            .collect::<HashMap<String, String>>()
+    ))
+}
+
+fn val_type(v: &Value) -> String {
+    use Value as E;
+    match v {
+        E::Null => "null",
+        E::Array(_) => "array",
+        E::Bool(_) => "bool",
+        E::Number(_) => "number",
+        E::Object(_) => "object",
+        E::String(_) => "string",
+    }
+    .to_string()
 }
 
 async fn htmx() -> impl IntoResponse {
     (
         [(header::CONTENT_TYPE, "application/javascript")],
         include_str!("htmx.min.js"),
-    )
-}
-
-async fn htmx_json_enc() -> impl IntoResponse {
-    (
-        [(header::CONTENT_TYPE, "application/javascript")],
-        include_str!("json-enc.js"),
     )
 }
 
