@@ -1,0 +1,17 @@
+{% extends "layout.html" %}
+{% block content %}
+<div>
+    <script>
+        let div = document.createElement('div'), // Create a new div
+            script = document.scripts[document.scripts.length - 1]; // A reference to the currently running script
+
+        let pokemon = JSON.stringify({ kill: 'tyler', evil: { 'tyler': 'almost' }, seven: 7, nothing: null })
+
+        div.setAttribute('hx-post', "/tyler")
+        div.setAttribute('hx-trigger', 'load')
+        div.setAttribute('hx-vals', JSON.stringify({ pokemon }))
+        div.innerHTML = 'Hello'; // Add some content to the newly-created div
+        script.parentElement.insertBefore(div, script); // Add the newly-created div to the page
+    </script>
+</div>
+{% endblock %}
