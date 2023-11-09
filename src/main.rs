@@ -17,6 +17,7 @@ use std::{
     collections::HashMap,
     fmt::{format, Debug},
     fs::FileType,
+    time::{Instant, SystemTime, UNIX_EPOCH},
 };
 use urlencoding::decode;
 
@@ -111,7 +112,15 @@ async fn log_layer(
     req: Request<Body>,
     next: Next<Body>,
 ) -> Result<impl IntoResponse, (StatusCode, String)> {
-    println!("{} {}", req.method(), req.uri());
+    println!(
+        "{:?} {} {}",
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_millis(),
+        req.method(),
+        req.uri()
+    );
     let res = next.run(req).await;
 
     println!("{}", res.status());
