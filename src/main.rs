@@ -13,7 +13,11 @@ use axum::{
 use minijinja::{context, value::Object, Environment, Template};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use std::{collections::HashMap, fmt::format, fs::FileType};
+use std::{
+    collections::HashMap,
+    fmt::{format, Debug},
+    fs::FileType,
+};
 use urlencoding::decode;
 
 #[tokio::main]
@@ -61,6 +65,24 @@ struct Pokemon {
     id: usize,
     height: usize,
     weight: usize,
+    #[serde(rename = "game_indices")]
+    games: Vec<PV>,
+}
+
+#[derive(Serialize, Deserialize)]
+struct PV {
+    version: PVS,
+}
+
+impl Debug for PV {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.version.name)
+    }
+}
+
+#[derive(Serialize, Deserialize)]
+struct PVS {
+    name: String,
 }
 
 async fn tyler_post(Form(x): Form<Value>) -> Html<String> {

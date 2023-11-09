@@ -6,18 +6,18 @@
       script = document.scripts[document.scripts.length - 1]; // A reference to the currently running script
 
 
-    fetch('https://pokeapi.co/api/v2/pokemon/ditto')
-      .then(x => x.text())
+    fetch('https://pokeapi.co/api/v2/pokemon/mudkip')
+      .then(x => x.json())
       .then(pokemon => {
         console.log(pokemon)
 
         div.setAttribute('hx-post', "/tyler")
         div.setAttribute('hx-trigger', 'load')
-        div.setAttribute('hx-vals', JSON.stringify({ json: pokemon }))
+        div.setAttribute('hx-vals', JSON.stringify({ json: JSON.stringify(pokemon) }))
         div.innerHTML = 'loading...'; // Add some content to the newly-created div
         script.parentElement.insertBefore(div, script); // Add the newly-created div to the page
-        htmx.process(div)
-        div.click()
+
+        htmx.process(div)// THE ELEMENT WILL DO NOTHING WITHOUT THIS LINE !!!!!!!!
       })
   </script>
 
