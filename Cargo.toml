@@ -8,6 +8,7 @@ edition = "2021"
 [dependencies]
 axum = { version = "0.6.20", features = ["json"] }
 minijinja = { version = "1.0.9", features = ["loader"] }
+serde = { version = "1.0.192", features = ["derive"] }
 serde_json = "1.0.108"
 tokio = { version = "1.33.0", features = ["full"] }
 urlencoding = "2.1.3"

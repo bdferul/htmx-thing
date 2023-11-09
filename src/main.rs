@@ -1,29 +1,32 @@
 #![allow(dead_code, unused_imports)]
 
 use axum::{
-    body::Body,
-    body::Bytes,
+    body::{Body, Bytes},
     extract::{self, Query},
     http::{header, HeaderMap, Request, StatusCode, Uri},
     middleware::{self, Next},
     response::Response,
     response::{Html, IntoResponse},
     routing::{get, post},
-    Json, Router,
+    Form, Json, Router,
 };
 use minijinja::{context, value::Object, Environment, Template};
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::{collections::HashMap, fmt::format, fs::FileType};
 use urlencoding::decode;
 
 #[tokio::main]
 async fn main() {
-    // build our application with a single route
     let app = Router::new()
         // -- HTMX
         .route("/htmx", get(htmx))
         // -- PAGES
         .route("/", get(index))
+        .route(
+            "/form",
+            get(|| async { MyEnvironment::get_html("form.html") }).post(form_post),
+        )
         .route(
             "/tyler",
             get(|| async { MyEnvironment::get_html("tyler.html") }).post(tyler_post),
@@ -34,7 +37,11 @@ async fn main() {
         )
         // -- API
         .route("/mouse_entered", post(|| async { println!("mouse enter") }))
-        .route("/tst", get(|| async { "{\"kill\": 7}" }));
+        .route("/tst", get(|| async { "{\"kill\": 7}" }))
+        .layer(middleware::from_fn(log_layer));
+
+    dbg!(&app);
+    println!("Running on http://localhost:3000");
 
     // run it with hyper on localhost:3000
     axum::Server::bind(&"0.0.0.0:3000".parse().unwrap())
@@ -43,19 +50,26 @@ async fn main() {
         .unwrap();
 }
 
-async fn tyler_post(x: String) -> Html<String> {
-    let x = decode(&x["_=".len()..]).unwrap().to_string();
-    let data: Value = serde_json::from_str(&x).unwrap();
+async fn form_post(Form(x): Form<Value>) -> String {
+    println!("{x}");
+    "success".to_string()
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+struct Pokemon {
+    name: String,
+    id: usize,
+    height: usize,
+    weight: usize,
+}
+
+async fn tyler_post(Form(x): Form<Value>) -> Html<String> {
+    println!("tyler");
+    let x = x["json"].as_str().unwrap_or("{'error':'no data'}");
+    let data: Pokemon = serde_json::from_str(x).unwrap();
     //let Value::Object(data) = data else { panic!() };
 
-    Html(format!(
-        "<pre>{:#?}</pre>",
-        data.as_object()
-            .unwrap()
-            .iter()
-            .map(|(k, v)| (k.to_string(), val_type(v)))
-            .collect::<HashMap<String, String>>()
-    ))
+    Html(format!("<pre>{data:#?}</pre>",))
 }
 
 fn val_type(v: &Value) -> String {
@@ -69,6 +83,17 @@ fn val_type(v: &Value) -> String {
         E::String(_) => "string",
     }
     .to_string()
+}
+
+async fn log_layer(
+    req: Request<Body>,
+    next: Next<Body>,
+) -> Result<impl IntoResponse, (StatusCode, String)> {
+    println!("{} {}", req.method(), req.uri());
+    let res = next.run(req).await;
+
+    println!("{}", res.status());
+    Ok(res)
 }
 
 async fn htmx() -> impl IntoResponse {
