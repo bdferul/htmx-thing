@@ -2,7 +2,7 @@
 
 use axum::{
     body::{Body, Bytes},
-    extract::{self, Query},
+    extract::{self, Path, Query},
     http::{header, HeaderMap, Request, StatusCode, Uri},
     middleware::{self, Next},
     response::Response,
@@ -16,7 +16,8 @@ use serde_json::Value;
 use std::{
     collections::HashMap,
     fmt::{format, Debug},
-    fs::FileType,
+    fs::{self, FileType},
+    os::unix::prelude::OsStrExt,
     time::{Instant, SystemTime, UNIX_EPOCH},
 };
 use urlencoding::decode;
@@ -24,8 +25,7 @@ use urlencoding::decode;
 #[tokio::main]
 async fn main() {
     let app = Router::new()
-        // -- HTMX
-        .route("/htmx", get(htmx))
+        .route("/assets/js/:file_name", get(static_js_file))
         // -- PAGES
         .route("/", get(index))
         .route(
@@ -45,7 +45,6 @@ async fn main() {
         .route("/tst", get(|| async { "{\"kill\": 7}" }))
         .layer(middleware::from_fn(log_layer));
 
-    dbg!(&app);
     println!("Running on http://localhost:3000");
 
     // run it with hyper on localhost:3000
@@ -53,6 +52,23 @@ async fn main() {
         .serve(app.into_make_service())
         .await
         .unwrap();
+}
+
+async fn static_js_file(Path(file_name): Path<String>) -> impl IntoResponse {
+    if !dir_child_names("assets/js").contains(&file_name) {
+        panic!()
+    }
+    (
+        [(header::CONTENT_TYPE, "application/javascript")],
+        fs::read_to_string(format!("assets/js/{file_name}")).unwrap(),
+    )
+}
+
+fn dir_child_names(path: impl AsRef<std::path::Path>) -> Vec<String> {
+    fs::read_dir(path)
+        .unwrap()
+        .map(|x| x.unwrap().file_name().to_str().unwrap().to_string())
+        .collect()
 }
 
 async fn form_post(Form(x): Form<Value>) -> String {
@@ -113,13 +129,13 @@ async fn log_layer(
     next: Next<Body>,
 ) -> Result<impl IntoResponse, (StatusCode, String)> {
     println!(
-        "{:?} {} {}",
+        "{} {} {}",
+        req.method(),
+        req.uri(),
         SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap()
             .as_millis(),
-        req.method(),
-        req.uri()
     );
     let res = next.run(req).await;
 
@@ -127,12 +143,7 @@ async fn log_layer(
     Ok(res)
 }
 
-async fn htmx() -> impl IntoResponse {
-    (
-        [(header::CONTENT_TYPE, "application/javascript")],
-        include_str!("htmx.min.js"),
-    )
-}
+async fn htmx() -> impl IntoResponse {}
 
 async fn index() -> Html<String> {
     let env = MyEnvironment::default().0;
